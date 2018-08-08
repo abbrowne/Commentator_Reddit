@@ -184,8 +184,8 @@ cor_matrix_filtered = cor_matrix[-to_remove,-to_remove]
 ##759 left
 
 
-res1 = cor.mtest(input[,-to_remove],conf.level=0.95)
-pdf('corrplot_testing.pdf')
+res1 = cor.mtest(input[,-to_remove],conf.level=0.999)
+pdf('corrplot_testing_big.pdf',length=1000,width=1000)
 corrplot(cor_matrix_filtered,p.mat=res1$p,tl.cex=0.2,method='color',insig='label_sig',sig.level=c(.001), pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
 dev.off()
 
