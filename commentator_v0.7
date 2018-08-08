@@ -1,0 +1,376 @@
+import praw
+import pandas as pd
+import datetime as dt
+import numpy as np
+import os
+import sys
+from praw.models import MoreComments
+import re
+
+##Login info
+
+##Find an interesting thread
+
+subreddit = reddit.subreddit('gameofthrones')
+top_subreddit = subreddit.top(limit=500)
+topics_dict = { "title":[], "score":[], "id":[], "url":[], "comms_num": [], "created": [], "body":[]}
+for submission in top_subreddit:
+    topics_dict["title"].append(submission.title)
+    topics_dict["score"].append(submission.score)
+    topics_dict["id"].append(submission.id)
+    topics_dict["url"].append(submission.url)
+    topics_dict["comms_num"].append(submission.num_comments)
+    topics_dict["created"].append(submission.created)
+    topics_dict["body"].append(submission.selftext)
+
+topics_data = pd.DataFrame(topics_dict)
+topics_data
+
+##Get comment data for the chosen submission
+
+chosen_submission = '6wt0fa'
+
+#submission = reddit.submission(id='6tjdrm')
+
+submission = reddit.submission(id='6wt0fa')
+comment_mat = pd.DataFrame()
+
+##Set comment forest depth to retrieve comments
+
+submission.comments.replace_more(limit=10)
+for comment in submission.comments.list():
+    comment_mat = comment_mat.append(pd.Series([comment.body,comment.author,comment.link_id,comment.created_utc]), ignore_index=True)
+
+##Set column names and index to the user_thread_timestamp
+
+comment_mat = comment_mat.rename(columns=pd.Series(['comment','author','thread','timestamp']))
+comment_mat['id'] = comment_mat['author'].astype(str) + '_' + comment_mat['thread'].astype('str') + '_' + comment_mat['timestamp'].astype('str')
+comment_mat = comment_mat.set_index(comment_mat['id'])
+
+##Set comment index, drop NA values, convert non-alphanumeric characters to spaces, convert multiple spaces to single spaces, strip leading and trailing space, convert to lowercase, and drop duplicates
+
+comment_lines = pd.DataFrame(comment_mat.iloc[:,0].copy())
+comment_lines = comment_lines.set_index(comment_mat.index.values)
+comment_lines = comment_lines.dropna()
+comment_lines['comment'] = comment_lines['comment'].map(lambda x: re.sub(r'\W+', ' ', x)).str.replace('  ',' ').str.strip().str.lower()
+comment_lines = comment_lines.drop_duplicates()
+
+##Split comments by spaces into lists of unique words
+
+comment_words = pd.Series(comment_lines['comment'].str.split(' '))
+result = pd.Series(list(set(x for l in comment_words for x in l)))
+result = result[result.values != '']
+result = result[result.values != ' ']
+words = pd.Series(result.values.copy())
+id_list = pd.Series(comment_words.index.values)
+
+##Generate a comment by word matrix with 1(TRUE) or 0(FALSE) values for the presence of each word in each comment
+
+word_comment_mat = pd.DataFrame()
+full_word_comment_mat = pd.DataFrame()
+temp_comment = 0
+for comment in np.arange(0,len(comment_words)):
+    temp_words = pd.DataFrame(result.isin(pd.Series(comment_words.iloc[comment])))
+    word_comment_mat = pd.concat([word_comment_mat,temp_words],axis=1)
+    if(((comment+1)%1000==0) | ((comment+1) == len(comment_words))):
+        word_comment_mat = word_comment_mat.rename(index=words)
+        word_comment_mat.columns = id_list[temp_comment:(len(word_comment_mat.columns)+temp_comment)]
+        full_word_comment_mat = pd.concat([full_word_comment_mat,word_comment_mat],axis=1)
+        temp_comment = comment.copy()
+        word_comment_mat = pd.DataFrame()
+    print(comment)
+
+full_word_comment_mat = full_word_comment_mat.astype('int64')
+
+##Write the comment by word matrix to csv
+
+csv_name = chosen_submission + '_comment_word_matrix.csv'
+full_word_comment_mat.to_csv(csv_name,header=True,index=True,mode='w')
+
+####################################
+####################################
+####################################
+####################################
+####################################END COMMENT SCRAPING
+####################################
+####################################
+####################################
+####################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#comment_lines['comment'] = comment_lines['comment'].map(lambda x: re.sub(r'\W+', '', x))
+
+
+
+
+full_comment_mat.to_csv('test.csv',header=True,index=True,mode='w')
+to_keep = full_comment_mat.sum(axis=1)
+full_comment_mat = full_comment_mat[to_keep > 50]
+full_comment_mat.to_csv('test2.csv',header=True,index=True,mode='w')
+
+#######################R code
+library(DESeq)
+library(RColorBrewer)
+library(gplots)
+library(ggplot2)
+library(rgl)
+library(edgeR)
+library(EDASeq)
+library(corrplot)
+library(WGCNA)
+library(limma)
+library(sva)
+library(variancePartition)
+library(statmod)
+library(calibrate)
+library(doParallel)
+library(pca3d)
+library(reshape2)
+library(corrplot)
+library(RColorBrewer)
+library(ape)
+library(ellipse)
+
+setwd('C:/Users/abbro/Dropbox/Commentator')
+input = as.data.frame(read.csv('6wt0fa_comment_word_matrix.csv',row.names=1))
+
+#input = t(input)
+#input = input[,colSums(input) > 1]
+
+input = input[rowSums(input) > 1,]
+words_to_drop = c('as','the','he','him','his','she','her','hers','it','they','may','ya','on','im','of','yup','i','did','too','but','have','been','for','so')
+input = input[!(rownames(input) %in% words_to_drop),]
+length(input[!(rownames(input) %in% words_to_drop),])
+input = input[,colSums(input) > 0]
+
+cor_matrix <- cor(input)
+cor_matrix_backup <- cor_matrix
+to_remove = c()
+for (i in 1:nrow(cor_matrix)){
+	if(length(cor_matrix[i,(abs(as.numeric(cor_matrix[i,1:ncol(cor_matrix)])) > 0.5)]) < 2){
+		to_remove = c(to_remove,i)
+	}
+}
+length(to_remove)
+cor_matrix_filtered = cor_matrix[-to_remove,-to_remove]
+
+res1 = cor.mtest(input[,-to_remove],conf.level=0.95)
+pdf('corrplot_testing.pdf')
+corrplot(cor_matrix_filtered,p.mat=res1$p,tl.cex=0.2,method='color',insig='label_sig',sig.level=c(.001), pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
+dev.off()
+cor_matrix['jerusha16_t3_6wt0fa_1504037068.0',(abs(as.numeric(cor_matrix['jerusha16_t3_6wt0fa_1504037068.0',1:ncol(cor_matrix)])) > 0.5)]
+
+
+
+
+
+
+
+centered_input <- t(scale(t(input),scale=F))
+PC <- prcomp(centered_input)
+topPC<- PC$rotation[,1:5]
+varexp <- (PC$sdev)^2 / sum(PC$sdev^2)
+topvar <- varexp[1:5]
+colnames(topPC) <- paste("PC_MATS2\n",colnames(topPC)," (",signif(100*topvar[1:5],2),"%)",sep="")
+topPC2 <- topPC
+colnames(topPC2) <- c("PC1","PC2","PC3","PC4","PC5")
+#corrplot(cor_matrix_filtered,method='color',tl.cex=0.5,pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
+
+
+
+D = 1 - cor(input)
+dMat = as.dist(D)
+mds = cmdscale( dMat, eig=TRUE )
+hcl = stats::hclust( dMat, "ward.D2" )
+
+file = paste("MDS.pdf", sep='')
+pdf(file)
+pve = format(mds$eig[1:3] / sum(mds$eig)*100, digits=3)
+plot( mds$points, type='n', xlab=paste("Coordinate 1 (", pve[1], "%)", sep=''), ylab=paste("Coordinate 2 (", pve[2], "%)", sep=''))
+points( mds$points, col=col[targets$show], pch=pch[targets$show])
+dev.off()
+
+# full tree
+file = paste("hclust_tree.pdf", sep='')
+pdf(file, height=16)
+plot(as.phylo(hcl), tip.color=col[targets$show], cex=0.2)
+dev.off()
+
+
+# fan
+file = paste("hclust_fan.pdf", sep='')
+pdf(file, height=10, width=10)
+plot(as.phylo(hcl), type="fan", tip.color=col[targets$show], cex=.2)
+dev.off()
+
+for(method in c('ward.D', 'ward.D2', 'complete', 'average')){
+hcl = stats::hclust( as.dist(D_sets), method=method )
+file = paste0("Summary_clustering_1", method, ".pdf")
+pdf(file)
+plot(root(as.phylo((hcl)), "Whole blood (GTEX)"), cex=1, tip.color=col, main=method) #set blood as root
+#plot((as.phylo((hcl))), cex=1, tip.color=col, main=method)
+dev.off()
+	}
+
+
+
+
+
+comment_mat = comment_mat.rename(index=words)#,columns=pd.Series(id_list[0:len(comment_mat.columns)].values))
+comment_mat.columns = id_list[0:len(comment_mat.columns)]
+
+
+
+	
+	
+	
+comment_mat = pd.DataFrame()
+id = pd.Series(test.index.values[0])
+test2 = pd.DataFrame(result.isin(pd.Series(test.iloc[0]))).rename(columns=id,index=words).T#.rename(columns=id).T.rename(columns=words[0])#.rename(pd.Series(result.values)).T
+#comment_mat = comment_mat.append(test2)
+test2.to_csv('test.csv', header=True,sep=',',mode='w')
+for comment in np.arange(0,len(test)):
+    id = pd.Series(test.index.values[comment])
+    test2 = pd.DataFrame(result.isin(pd.Series(test.iloc[comment]))).rename(columns=id,index=words).T
+    #comment_mat = comment_mat.append(test2)
+    test2.to_csv('test.csv', header=False,mode='a')
+    print(comment)
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+comment_mat.columns = result.values
+
+
+
+
+
+test2 = test2.set_index(result.values)
+
+comment_mat = pd.DataFrame()
+for comment_data in np.arange(0,10000):#len(comments)):
+    print(comment_data)
+    comment_line = comments.iloc[comment_data].copy()
+    #comment_lines = comments.iloc[:,0].copy().dropna()
+    while (pd.isnull(comment_line.iloc[0])):
+        comment_data += 1
+        comment_line = comments.iloc[comment_data].copy()
+    comment = comment_line.iloc[0].replace('  ',' ').strip()
+    while (comment == '' or comment == ' '):
+        comment_data += 1
+        comment_line = comments.iloc[comment_data].copy()
+        comment = comment_line.iloc[0].replace('  ',' ').strip()
+    comment = pd.Series(comment.split(' '))
+    comment = pd.DataFrame(comment.unique())
+    comment_name = comment_line.iloc[1] + '_' + str(int(comment_line.iloc[4])) + '_' + comment_line.iloc[5]
+    comment[comment_name] = bool(True)
+    comment = comment.set_index(comment.iloc[:,0])
+    comment = comment.iloc[:,1]
+    comment_mat = comment_mat.append(comment)
+
+comment_mat = comment_mat.fillna(0)
+comment_mat = comment_mat.drop_duplicates()
+
+
+
+
+
+
+
+library(stringr)
+test <- read.csv("television_gameofthrones.csv")
+y = 1
+for (y in 900:1000){
+
+	test3 <- as.data.frame(unique(unlist(strsplit(paste(test2), " "))))
+	rownames(test3) <- test3[,1]
+	test3[,1] = as.logical(1)
+	colnames(test3) <- paste(test[y,3],test[y,6],test[y,7],sep="_")
+	if(y > 1){
+		test4 <- merge(test4, test3,by=0,all=TRUE)
+		test4[is.na(test4)] <- 0
+		rownames(test4) <- test4[,1]
+		test4 <- test4[,2:ncol(test4)]
+		y =+ 1
+	}
+	if(y == 1){
+		test4 = test3
+		y =+ 1
+	}
+}
+
+test5 = test4
+#to_keep <- NULL
+#to_keep <- rowSums(test10>1) >= ncol(test10)/10 # re
+
+#test11 <- test10[to_keep,]
+to_keep <- NULL
+to_keep <- colSums(test11) > 0
+test11 <- test11[,to_keep]
+centered_input <- t(scale(t(test11),scale=F))
+PC <- prcomp(centered_input)
+topPC<- PC$rotation[,1:5]
+varexp <- (PC$sdev)^2 / sum(PC$sdev^2)
+topvar <- varexp[1:5]
+colnames(topPC) <- paste("PC_MATS2\n",colnames(topPC)," (",signif(100*topvar[1:5],2),"%)",sep="")
+topPC2 <- topPC
+colnames(topPC2) <- c("PC1","PC2","PC3","PC4","PC5")
+
+cor_matrix <- cor(test11)
+res1 = cor.mtest(test11,conf.level=0.95)
+M = cor(test11)
+corrplot(M,p.mat=res1$p,method='color',insig='label_sig',sig.level=c(.0000001), pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
+
+
+
+D = 1 - cor(test11)
+dMat = as.dist(D)
+mds = cmdscale( dMat, eig=TRUE )
+hcl = stats::hclust( dMat, "ward.D2" )
+
+
+
+
+
+test3 <- strsplit(paste(test2), " ")
+test4 = factor(test3[[1]])
+test5 = levels(test4)
+test6 <- matrix(,nrow=length(test5),ncol=2)
+for (y in 1:length(test5)){
+	test6[y,1] <- test5[y]
+	test6[y,2] <- sum(test5[y] %in% test3[[1]])
+}
+test7 <- table(unlist(strsplit(paste(test2), " ")))

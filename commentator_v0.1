@@ -1,0 +1,128 @@
+import praw
+
+print(reddit.user.me())
+subreddit = reddit.subreddit('python')
+
+import pandas as pd
+import numpy as np
+import os
+import sys
+
+comments = pd.read_csv('television_gameofthrones.csv',index_col=0,header=0)
+comments = comments.set_index(comments['1'] + '_' + comments['4'].astype('str') + '_' + comments['5'])
+comment_lines = pd.DataFrame(comments.iloc[:,0].copy())
+comment_lines = comment_lines.set_index(comments.index.values)
+comment_lines = comment_lines.dropna()
+comment_lines['0'] = comment_lines['0'].str.replace('  ',' ').str.strip()
+test = pd.DataFrame(comment_lines['0'].str.split(' '))
+result = pd.Series(list(set(x for l in test.iloc[:,0] for x in l)))
+result = result[result.values != '']
+comment_mat = pd.DataFrame()
+for comment in np.arange(0,len(test)):
+    test2 = pd.Series(result.isin(pd.Series(test.iloc[comment])))
+    test2 = test2.rename(test.index.values[comment])
+    comment_mat = comment_mat.append(test2)
+    print(comment)
+
+comment_mat.columns = result.values
+
+
+
+
+
+test2 = test2.set_index(result.values)
+
+comment_mat = pd.DataFrame()
+for comment_data in np.arange(0,10000):#len(comments)):
+    print(comment_data)
+    comment_line = comments.iloc[comment_data].copy()
+    #comment_lines = comments.iloc[:,0].copy().dropna()
+    while (pd.isnull(comment_line.iloc[0])):
+        comment_data += 1
+        comment_line = comments.iloc[comment_data].copy()
+    comment = comment_line.iloc[0].replace('  ',' ').strip()
+    while (comment == '' or comment == ' '):
+        comment_data += 1
+        comment_line = comments.iloc[comment_data].copy()
+        comment = comment_line.iloc[0].replace('  ',' ').strip()
+    comment = pd.Series(comment.split(' '))
+    comment = pd.DataFrame(comment.unique())
+    comment_name = comment_line.iloc[1] + '_' + str(int(comment_line.iloc[4])) + '_' + comment_line.iloc[5]
+    comment[comment_name] = bool(True)
+    comment = comment.set_index(comment.iloc[:,0])
+    comment = comment.iloc[:,1]
+    comment_mat = comment_mat.append(comment)
+
+comment_mat = comment_mat.fillna(0)
+comment_mat = comment_mat.drop_duplicates()
+
+
+
+
+
+
+
+library(stringr)
+test <- read.csv("television_gameofthrones.csv")
+y = 1
+for (y in 900:1000){
+
+	test3 <- as.data.frame(unique(unlist(strsplit(paste(test2), " "))))
+	rownames(test3) <- test3[,1]
+	test3[,1] = as.logical(1)
+	colnames(test3) <- paste(test[y,3],test[y,6],test[y,7],sep="_")
+	if(y > 1){
+		test4 <- merge(test4, test3,by=0,all=TRUE)
+		test4[is.na(test4)] <- 0
+		rownames(test4) <- test4[,1]
+		test4 <- test4[,2:ncol(test4)]
+		y =+ 1
+	}
+	if(y == 1){
+		test4 = test3
+		y =+ 1
+	}
+}
+
+test5 = test4
+#to_keep <- NULL
+#to_keep <- rowSums(test10>1) >= ncol(test10)/10 # re
+
+#test11 <- test10[to_keep,]
+to_keep <- NULL
+to_keep <- colSums(test11) > 0
+test11 <- test11[,to_keep]
+centered_input <- t(scale(t(test11),scale=F))
+PC <- prcomp(centered_input)
+topPC<- PC$rotation[,1:5]
+varexp <- (PC$sdev)^2 / sum(PC$sdev^2)
+topvar <- varexp[1:5]
+colnames(topPC) <- paste("PC_MATS2\n",colnames(topPC)," (",signif(100*topvar[1:5],2),"%)",sep="")
+topPC2 <- topPC
+colnames(topPC2) <- c("PC1","PC2","PC3","PC4","PC5")
+
+cor_matrix <- cor(test11)
+res1 = cor.mtest(test11,conf.level=0.95)
+M = cor(test11)
+corrplot(M,p.mat=res1$p,method='color',insig='label_sig',sig.level=c(.0000001), pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
+
+
+
+D = 1 - cor(test11)
+dMat = as.dist(D)
+mds = cmdscale( dMat, eig=TRUE )
+hcl = stats::hclust( dMat, "ward.D2" )
+
+
+
+
+
+test3 <- strsplit(paste(test2), " ")
+test4 = factor(test3[[1]])
+test5 = levels(test4)
+test6 <- matrix(,nrow=length(test5),ncol=2)
+for (y in 1:length(test5)){
+	test6[y,1] <- test5[y]
+	test6[y,2] <- sum(test5[y] %in% test3[[1]])
+}
+test7 <- table(unlist(strsplit(paste(test2), " ")))
