@@ -158,7 +158,7 @@ library(RColorBrewer)
 library(ape)
 library(ellipse)
 
-setwd('C:/Users/abbro/Dropbox/Commentator')
+setwd('C:/Users/abbro/Dropbox/Commentator_Reddit')
 input = as.data.frame(read.csv('6wt0fa_comment_word_matrix.csv',row.names=1))
 
 #input = t(input)
@@ -174,7 +174,7 @@ cor_matrix <- cor(input)
 cor_matrix_backup <- cor_matrix
 to_remove = c()
 for (i in 1:nrow(cor_matrix)){
-	if(length(cor_matrix[i,(abs(as.numeric(cor_matrix[i,1:ncol(cor_matrix)])) > 0.2)]) < 2){
+	if(length(cor_matrix[i,(abs(as.numeric(cor_matrix[i,1:ncol(cor_matrix)])) > 0.5)]) < 2){
 		to_remove = c(to_remove,i)
 	}
 }
@@ -182,11 +182,12 @@ length(to_remove)
 cor_matrix_filtered = cor_matrix[-to_remove,-to_remove]
 
 ##759 left
+hist(rowSums(input))
 
 
 res1 = cor.mtest(input[,-to_remove],conf.level=0.999)
-pdf('corrplot_testing_big.pdf',length=1000,width=1000)
-corrplot(cor_matrix_filtered,p.mat=res1$p,tl.cex=0.2,method='color',insig='label_sig',sig.level=c(.001), pch.cex=0.5, pch.col='black', order='hclust', type='upper',col = cm.colors(100))
+pdf('corrplot_testing_big.pdf',height=20,width=20)
+corrplot(cor_matrix_filtered,p.mat=res1$p,tl.cex=0.7,method='color',insig='label_sig',sig.level=c(.000001), pch.cex=0.9, pch.col='yellow', order='hclust', type='upper',col = rainbow(100))
 dev.off()
 
 cor_matrix_filtered['fullforce098_t3_6wt0fa_1504040238.0',(abs(as.numeric(cor_matrix_filtered['fullforce098_t3_6wt0fa_1504040238.0',1:ncol(cor_matrix_filtered)])) > 0.3)]
